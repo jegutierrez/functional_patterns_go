@@ -12,8 +12,8 @@ package main
 //  - :-)
 //  - ())(
 
-// BalanceTailRecursive tail recursive implementation.
-func BalanceTailRecursive(s string) bool {
+// BalanceRecursive tail recursive implementation.
+func BalanceRecursive(s string) bool {
 	return balanceHelper(s, 0, 0)
 }
 
@@ -47,3 +47,5 @@ func BalanceGoStyle(s string) bool {
 	}
 	return count == 0
 }
+
+func main() {}
