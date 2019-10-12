@@ -103,7 +103,7 @@ ok      _/Users/jegutierrez/Documents/projects/functional_patters_go/recursive  
 
 Vemos que hay una diferencia considerable entre las dos versiones, la recursiva tarda un poco más de 21 segundos, esto es principalmente, debido a la cantidad de llamadas anidadas en el stack de ejecuciones (podríamos optimizar nuestra versión recursiva utilizando alguna técnica de memoization, pero solo busco mostrar que la recursividad puede tener un costo grande en algunos casos) y la versión que usa for loop tiene un tiempo cercano a cero.
 
-Dejo todo el código y otro ejemplo utilizando tail recursividad, junto con los test y benchmarks aplicados [aqui](https://github.com/jegutierrez/functional_patterns_go/recursion).
+Dejo todo el código y otro ejemplo utilizando tail recursividad, junto con los test y benchmarks aplicados [aqui](https://github.com/jegutierrez/functional_patterns_go/tree/master/recursion).
 
 Después de haber visto los ejemplos y benchmarks nos podemos dar cuenta que no es tan buena idea usar recursividad en todos los casos en Go, ya que no tenemos problema de que crezca call el stack, además de ser la manera más idiomática de resolver casi todos los problemas en el ecosistema de Go, sin embargo, como dije antes, lo que tenemos que priorizar siempre es la claridad del código y si para el equipo una solución funcional resulta más clara, pues entonces es la manera correcta.
 
@@ -137,26 +137,178 @@ Para los test utilizamos esta tecnica, de manera de aplicar el context de
 
 ### Concurrencia y funciones
 
-Aqui quiero destacar y mostrar el ejemplo de hacer llamadas a multiples APIs como un caso de la vida real.
+Frecuentemente utilizamos técnicas funcionales para trabajar con concurrencia en Go como funciones lambda o closures. 
 
-Mostrar el contraste con promesas en javascript y Futures en java, en Go no tenemos algo igual en la standard library, podemos usar una libreria para manejar promesas o futuros, pero en mi opinion, eso no sería el estilo de Go.
+Vamos a mostrar el ejemplo muy común de hacer llamadas a múltiples APIs y luego unir los resultados, lo que buscamos es, hacer múltiples requests http en paralelo y luego esperar a que vuelvan las respuestas para procesarlas.
 
-Dentro de Go tenemos las Goruoutines y los channels para manejar muy elegantemente la mayoria de los casos de concurrencia que se nos puedan presentar.
+En Go no tenemos en la standard library algo parecido a las promesas en javascript o Futures en java, sin embargo utilizado goroutines, waitgroups y channel podemos construir nuestra propia manera de resolver promesas al estilo simple de Go.
 
-Mostrar ejemplos de código y benchmarks:
+Primero mostramos un ejemplo de 3 endpoint, con delays:
 
-----
-Hacer llamadas a api bloqueantes
-----
+ /users 		-> 150 ms
+ /balance 		-> 350 ms
+ /user-debts 		-> 250 ms
 
-----
-Hacer llamadas a api usando wait groups y closures
-----
 
-----
-Hacer llamadas a api usando channels y closures
-----
+1. Primero hacemos un cliente con los 3 request bloqueantes, sin paralelismo:
 
-Mostrar como aprovechando la capacidad de pasar funciones podemos hacer patrones de concurrencia muy elegantes, ademas de poder hacer genericas algunas funciones dentro de nuestro código
+En este caso:
+* En este caso hacemos 3 requests http y cada uno bloquea hasta completarse.
+* Ignoramos los errores para hacer más concreto el ejemplo.
+* Se unen las respuesta una vez que se completaron las 3.
+
+```go
+func GetUserStatusSync(serverURL, userID string) (UserStatus, error) {
+	userResponse, _ := http.Get(fmt.Sprintf("%s/users/%s", serverURL, userID))
+	balanceResponse, _ := http.Get(fmt.Sprintf("%s/balance/%s", serverURL, userID))
+	debtsResponse, _ := http.Get(fmt.Sprintf("%s/user-debts/%s", serverURL, userID))
+
+	var userInfo map[string]string
+	unmarshalResponse(userResponse, &userInfo)
+	var userBalance map[string]string
+	unmarshalResponse(balanceResponse, &userBalance)
+	var userDebts []map[string]string
+	unmarshalResponse(debtsResponse, &userDebts)
+
+	return UserStatus{
+		ID:            userInfo["id"],
+		Name:          userInfo["name"],
+		BalanceAmount: userBalance["amount"],
+		Debts:         userDebts,
+	}, nil
+}
+```
+
+2. Una llamada utilizando funciones anónimas, closures, goroutines y un waitgroup para esperar a las respuesta de los 3 endpoints.
+
+En este caso:
+* Declaramos 1 waitgroup para esperar a los 3 requests.
+* Declaramos 3 variables `userResponse, balanceResponse, debtsResponse` de tipo `*http.Response` antes de las llamadas http.
+* Cada request http lo hacemos dentro de una lambda y cada lambda se ejecuta en una goroutine diferente y marca cómo `Done()` en el waitgroup una vez que tiene la respuesta.
+* Bloqueamos con el waitgroup hasta que se completen las 3 llamadas.
+* Se unen las respuesta como en el caso anterior.
+
+```go
+func GetUserStatusAsyncWaitGroup(serverURL, userID string) (UserStatus, error) {
+	var waitgroup sync.WaitGroup
+	waitgroup.Add(3)
+
+	var userResponse, balanceResponse, debtsResponse *http.Response
+	go func() {
+		userResponse, _ = http.Get(fmt.Sprintf("%s/users/%s", serverURL, userID))
+		waitgroup.Done()
+	}()
+	go func() {
+		balanceResponse, _ = http.Get(fmt.Sprintf("%s/balance/%s", serverURL, userID))
+		waitgroup.Done()
+	}()
+	go func() {
+		debtsResponse, _ = http.Get(fmt.Sprintf("%s/user-debts/%s", serverURL, userID))
+		waitgroup.Done()
+	}()
+	waitgroup.Wait()
+
+	var userInfo map[string]string
+	unmarshalResponse(userResponse, &userInfo)
+	var userBalance map[string]string
+	unmarshalResponse(balanceResponse, &userBalance)
+	var userDebts []map[string]string
+	unmarshalResponse(debtsResponse, &userDebts)
+
+	return UserStatus{
+		ID:            userInfo["id"],
+		Name:          userInfo["name"],
+		BalanceAmount: userBalance["amount"],
+		Debts:         userDebts,
+	}, nil
+}
+```
+
+3. Una llamada utilizando funciones anónimas, closures, goroutines y un waitgroup para esperar a las respuesta de los 3 endpoints.
+
+En este caso:
+* Declaramos 3 channels `userResponse, balanceResponse, debtsResponse`.
+* Cada request http lo hacemos dentro de una lambda y cada lambda se ejecuta en una goroutine diferente y una vez que tiene la respuesta se envía por el channel a la goroutine principal.
+* Para obtener cada response, lo escuchamos del channel correspondiente, ejemplo: `<-userResponse`
+* Se unen las respuesta como en el caso anterior.
+
+```go
+func GetUserStatusAsyncChannels(serverURL, userID string) (UserStatus, error) {
+
+	userResponse := make(chan *http.Response)
+	balanceResponse := make(chan *http.Response)
+	debtsResponse := make(chan *http.Response)
+	defer close(userResponse)
+	defer close(balanceResponse)
+	defer close(debtsResponse)
+
+	go func() {
+		result, _ := http.Get(fmt.Sprintf("%s/users/%s", serverURL, userID))
+		userResponse <- result
+	}()
+	go func() {
+		result, _ := http.Get(fmt.Sprintf("%s/balance/%s", serverURL, userID))
+		balanceResponse <- result
+	}()
+	go func() {
+		result, _ := http.Get(fmt.Sprintf("%s/user-debts/%s", serverURL, userID))
+		debtsResponse <- result
+	}()
+
+	var userInfo map[string]string
+	unmarshalResponse(<-userResponse, &userInfo)
+	var userBalance map[string]string
+	unmarshalResponse(<-balanceResponse, &userBalance)
+	var userDebts []map[string]string
+	unmarshalResponse(<-debtsResponse, &userDebts)
+	return UserStatus{
+		ID:            userInfo["id"],
+		Name:          userInfo["name"],
+		BalanceAmount: userBalance["amount"],
+		Debts:         userDebts,
+	}, nil
+}
+```
+
+Para comprobar hacemos un test que levanta un servidor http y ejecuta los 3 clientes y podemos observar los resultados.
+
+```go
+func TestGetUserStatus(t *testing.T) {
+	srv := httptest.NewServer(handler())
+	defer srv.Close()
+	userID := "2"
+
+	start := time.Now()
+	result, _ := GetUserStatusSync(srv.URL, userID)
+	elapsed := time.Since(start)
+	log.Printf("GetUserStatusSync took %s\n", elapsed)
+
+	start = time.Now()
+	result, _ = GetUserStatusAsyncWaitGroup(srv.URL, userID)
+	elapsed = time.Since(start)
+	log.Printf("GetUserStatusAsyncWaitGroup took %s\n", elapsed)
+
+	start = time.Now()
+	result, _ = GetUserStatusAsyncChannels(srv.URL, userID)
+	elapsed = time.Since(start)
+	log.Printf("GetUserStatusAsyncChannels took %s\n", elapsed)
+	...
+}
+```
+
+Resultados:
+* Caso bloqueante tarda 750 ms, que es el total sumado de los delays.
+* Casos 2 y 3 tardan 350 ms aprox, que es el mayor de los delays.
+
+```sh
+2019/10/12 17:21:35 server listening connections
+2019/10/12 17:21:36 GetUserStatusSync took 763.135932ms
+2019/10/12 17:21:36 GetUserStatusAsyncWaitGroup took 352.60757ms
+2019/10/12 17:21:36 GetUserStatusAsyncChannels took 355.580379ms
+PASS
+```
+El código completo y los tests aplicados se puede encontrar [aqui](https://github.com/jegutierrez/functional_patterns_go/tree/master/http)
+
+Aprovechando la capacidad de pasar funciones podemos hacer patrones de concurrencia muy elegantes, manteniendo la simpleza en nuestro código.
 
 ### Conclusiones

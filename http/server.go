@@ -20,7 +20,7 @@ func main() {
 func handler() http.Handler {
 	srv := http.NewServeMux()
 	srv.HandleFunc("/users/", userHandler)
-	srv.HandleFunc("/balance/", balanceHandler)
+	srv.HandleFunc("/balance/", onlyAuthenticated(balanceHandler))
 	srv.HandleFunc("/user-debts/", debtsHandler)
 	log.Println("server listening connections")
 	return srv
@@ -35,6 +35,20 @@ func userHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(user)
+}
+
+func onlyAuthenticated(h http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if !isAuth(r) {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		h(w, r)
+	}
+}
+
+func isAuth(r *http.Request) bool {
+	return true
 }
 
 func balanceHandler(w http.ResponseWriter, r *http.Request) {
@@ -60,7 +74,7 @@ func debtsHandler(w http.ResponseWriter, r *http.Request) {
 		{ID: "51", Reason: "chargeback", Amount: "43.0"},
 	}
 	// delay
-	time.Sleep(350 * time.Millisecond)
+	time.Sleep(250 * time.Millisecond)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(debts)
