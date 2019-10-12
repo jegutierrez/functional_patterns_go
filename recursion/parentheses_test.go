@@ -4,7 +4,7 @@ import (
 	"testing"
 )
 
-func TestBalanceParenthesesTailRecursion(t *testing.T) {
+func TestBalanceParenthesesRecursive(t *testing.T) {
 
 	tt := []struct {
 		sentence       string
@@ -30,7 +30,7 @@ func TestBalanceParenthesesTailRecursion(t *testing.T) {
 
 	for _, tc := range tt {
 		t.Run(tc.sentence, func(t *testing.T) {
-			result := BalanceTailRecursive(tc.sentence)
+			result := BalanceRecursive(tc.sentence)
 
 			if result != tc.expectedResult {
 				t.Errorf("unspected result, want: %t, got: %t", tc.expectedResult, result)
@@ -74,8 +74,8 @@ func TestBalanceParenthesesGoStyle(t *testing.T) {
 	}
 }
 
-func BenchmarkBalanceParenthesesTailRecursion(b *testing.B) {
-	result := BalanceTailRecursive(ReallyLargeParenthesesExpression)
+func BenchmarkBalanceParenthesesRecursive(b *testing.B) {
+	result := BalanceRecursive(ReallyLargeParenthesesExpression)
 
 	if result != true {
 		b.Errorf("unspected result, want true, got: %t", result)

@@ -1,29 +1,113 @@
-# fuctntional_patterns_go
-Recopilacion de algunos patrones que he identificado en aplicaciones en las que he trabajado.
+# Functional patterns en Go
+Recopilación de algunos patrones útiles que he identificado en el dia a dia trabajando con Go.
 
 ### Entonces, ¿programación funcional en Go?
 
-Go nos provee la capacidad de usar funciones como ciudadanos de primera clase, es decir, podemos utilizar las funciones para pasarlas como parámetro o retornarlas como valor de otra función (esto es conocido como funciones de orden superior), sin embargo, como todo en la ingenieria de software, es acerca de tradeoffs, lo recomendado es siempre preferir la claridad del código antes que cualquier patron o paradicma, por muy cool que sea.
+Go nos provee la capacidad de usar funciones como ciudadanos de primera clase, es decir, podemos utilizar las funciones para pasarlas como parámetro o retornarlas como valor de otra función (esto es conocido como funciones de orden superior), sin embargo, como todo en software, es acerca de tradeoffs, lo recomendado es siempre preferir la claridad del código antes que cualquier patrón o paradigma.
 
 En el siguiente post vamos a describir una serie de técnicas de programación funcional, aprovechando esta capacidad de trabajar con funciones como valor.
 
+### Que implica hacer programación funcional
+
+La programación funcional nos trae dos grandes restricciones:
+
+* Usar funciones para todo: hacer todas las operaciones con funciones.
+* No mutar estado: no mutar valores una vez declarados, no tener estructuras de dato mutables, no tener side effects dentro de nuestras funciones.
+
+Algunos de los conceptos que nos sirve tener en cuenta para identificar los patrones funcionales son los siguientes:
+
 ### Recursividad & benchmarks
 
-Cuando hablamos de programación funcional tenemos dos requisitos importantes, trabajar con funciones y no mutar estado. Y una de las primeras tecnicas que nos viene a la cabeza es la recursividad, que es la capacidad de una función de llamarse a si misma. Esto es necesario porque es la manera de hacer loops en FP.
+Cuando hablamos de programación funcional tenemos dos requisitos importantes, trabajar con funciones y no mutar estado. Y una de las primeras técnicas que nos viene a la cabeza es la recursividad, que es la capacidad de una función de llamarse a sí misma. Esto es necesario porque es la manera de hacer loops en FP.
 
-Por lo tanto lo primero que no podemos usar si queremos mantener inmutabilidad en nuestra aplicacion es la instrucción `for`, ya que dentro vamos mutando una variable que toma diferente valor en cada iteración.
+Por lo tanto lo primero que no podemos usar si queremos mantener inmutabilidad en nuestra aplicación es *for loops*, ya que dentro vamos mutando una variable que toma diferente valor en cada iteración.
 
-Otra de las cosas que acostumbramos a usar en Go son estructuras de datos a las que vamos appendeando elementos, esto tampoco podríamos, aunque en el caso del `slice` usando la función `append()` no estamos mutando ya que nos retorna un nuevo slice cada vez que se llama.
+Otra de las cosas que acostumbramos a usar en Go son estructuras de datos a las que vamos agregando elementos, esto tampoco podríamos, aunque en el caso del *slice* usando la función `append()` no estamos mutando ya que nos retorna un nuevo slice cada vez que se llama.
 
-¿Es buena idea esto en Go?
+¿Es buena idea no usar for loops en Go?
 
----
-Mostrar código de recursividad vs for y estructuras mutables y benchmarks.
----
+Veamos con un ejemplo y pruebas de performance:
 
-Despues de haber visto los ejemplos nos podemos dar cuenta que no es tan buena idea usar recursividad sobre `for` en Go, ya que el `for` está muy optimizado, no tenemos problema de que crezca mucho el stack de memoria, ademas de ser la manera mas idiomatica de resolver casi todos los problemas en el ecosistema, sin embargo, como dije antes, lo que tenemos que priorizar siempre es la claridad del código y si para el equipo una solución funcional resulta mas clara, pues entonces es la manera correcta.
+Escribir una función que cuente cuántas maneras posibles de dar cambio hay para un monto dado con una lista de denominaciones de monedas.
 
-Ademas cabe destacar que el problema de performance que vimos en los benchmarks, va a ser insignificante en el 99% de los casos, normalmente vamos a tener cullos de botella en otro lugar fuera del código, sobre todo si tenemos llamadas a servicios remotos, bases de datos, etc.
+Por ejemplo, hay 3 maneras de dar cambio para $4 con monedas de $1 y $2
+* 1+1+1+1
+* 1+1+2
+* 2+2
+
+Versión recursiva:
+
+```go
+func CoinsChangeRecursive(amount int, coins []int) int {
+	if amount == 0 {
+		return 1
+	} else if amount > 0 && len(coins) > 0 {
+		return CoinsChangeRecursive(amount-coins[0], coins) +
+			CoinsChangeRecursive(amount, coins[1:])
+	} else {
+		return 0
+	}
+}
+```
+
+Versión usando for loop y una tabla para guardar los resultados de cada iteración:
+
+```go
+func CoinsChangeGoStyle(amount int, coins []int) int {
+	var table = make([]int, amount+1, amount+1)
+	table[0] = 1
+
+	for i := 0; i < len(coins); i++ {
+		for j := coins[i]; j <= amount; j++ {
+			table[j] += table[j-coins[i]]
+		}
+	}
+	return table[amount]
+}
+```
+
+Benchmark
+
+```go
+func BenchmarkCoinsChangeRecursive(b *testing.B) {
+	result := CoinsChangeRecursive(3000, []int{5, 10, 20, 50, 100, 200, 500})
+
+	if result != 22481738 {
+		b.Errorf("unspected result, want 22481738, got: %d", result)
+	}
+}
+
+func BenchmarkCoinsChangeGoStyle(b *testing.B) {
+	result := CoinsChangeGoStyle(3000, []int{5, 10, 20, 50, 100, 200, 500})
+
+	if result != 22481738 {
+		b.Errorf("unspected result, want 22481738, got: %d", result)
+	}
+}
+```
+
+Run the benchmark using *go test*
+```sh
+go test -bench=Coins
+```
+
+Results:
+```sh
+goos: darwin
+goarch: amd64
+BenchmarkCoinsChangeRecursive-4                1        21611593952 ns/op
+BenchmarkCoinsChangeGoStyle-4           2000000000               0.00 ns/op
+PASS
+ok      _/Users/jegutierrez/Documents/projects/functional_patters_go/recursive  21.687s
+```
+
+Vemos que hay una diferencia considerable entre las dos versiones, la recursiva tarda un poco más de 21 segundos, esto es principalmente, debido a la cantidad de llamadas anidadas en el stack de ejecuciones (podríamos optimizar nuestra versión recursiva utilizando alguna técnica de memoization, pero solo busco mostrar que la recursividad puede tener un costo grande en algunos casos) y la versión que usa for loop tiene un tiempo cercano a cero.
+
+Dejo todo el código y otro ejemplo utilizando tail recursividad, junto con los test y benchmarks aplicados [aqui](https://github.com/jegutierrez/functional_patterns_go/recursion).
+
+Después de haber visto los ejemplos y benchmarks nos podemos dar cuenta que no es tan buena idea usar recursividad en todos los casos en Go, ya que no tenemos problema de que crezca call el stack, además de ser la manera más idiomática de resolver casi todos los problemas en el ecosistema de Go, sin embargo, como dije antes, lo que tenemos que priorizar siempre es la claridad del código y si para el equipo una solución funcional resulta más clara, pues entonces es la manera correcta.
+
+Como dato para pensar, Go ya es sumamente eficiente y en la mayoría de los casos el problema de performance que vimos en los benchmarks, va a ser insignificante, normalmente vamos a tener cuellos de botella en otro lugar fuera del código, sobre todo si tenemos llamadas a través de la red, manejo de archivos, bases de datos, etc.
 
 ### Higher order functions
 
