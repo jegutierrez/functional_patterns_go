@@ -69,18 +69,26 @@ func GetUserStatusAsyncWaitGroup(serverURL, userID string) (UserStatus, error) {
 
 // GetUserStatusAsyncChannels hit necessary endpoints and join user's data async with waitgroups.
 func GetUserStatusAsyncChannels(serverURL, userID string) (UserStatus, error) {
-	getRequester := func(url string, responder chan *http.Response) {
-		result, _ := http.Get(url)
-		responder <- result
-	}
 
 	userResponse := make(chan *http.Response)
 	balanceResponse := make(chan *http.Response)
 	debtsResponse := make(chan *http.Response)
+	defer close(userResponse)
+	defer close(balanceResponse)
+	defer close(debtsResponse)
 
-	go getRequester(fmt.Sprintf("%s/users/%s", serverURL, userID), userResponse)
-	go getRequester(fmt.Sprintf("%s/balance/%s", serverURL, userID), balanceResponse)
-	go getRequester(fmt.Sprintf("%s/user-debts/%s", serverURL, userID), debtsResponse)
+	go func() {
+		result, _ := http.Get(fmt.Sprintf("%s/users/%s", serverURL, userID))
+		userResponse <- result
+	}()
+	go func() {
+		result, _ := http.Get(fmt.Sprintf("%s/balance/%s", serverURL, userID))
+		balanceResponse <- result
+	}()
+	go func() {
+		result, _ := http.Get(fmt.Sprintf("%s/user-debts/%s", serverURL, userID))
+		debtsResponse <- result
+	}()
 
 	var userInfo map[string]string
 	unmarshalResponse(<-userResponse, &userInfo)
