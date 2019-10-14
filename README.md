@@ -2,7 +2,7 @@
 Recopilación de algunos patrones útiles que he identificado en el dia a dia trabajando con Go.
 
 **Nota:**
-Este repo NO es una introducción a Go, se asume que el lector tiene idea de la sintaxis básica del leguaje, manejo de funciones y conocimiento básico de algunos paquetes de la standard library como `net/http`. En caso de que no sea así, se recomienda primero dar una mirada al [tour de Go](https://tour.golang.org/welcome/1) que es una guia oficial y muy completa al lenguaje.
+Este repo NO es una introducción a Go, se asume que el lector tiene idea de la sintaxis básica del lenguaje, manejo de funciones y conocimiento básico de algunos paquetes de la standard library como `net/http`. En caso de que no sea así, se recomienda primero dar una mirada al [tour de Go](https://tour.golang.org/welcome/1) que es una guía oficial y muy completa al lenguaje.
 
 ### Entonces, ¿programación funcional en Go?
 
@@ -166,7 +166,7 @@ type Movement struct {
 type validator func(Movement) bool
 ```
 
-Luego tenemos un mapa de funciones de validacion. Es importante destacar que Go trata las funciones como valor y por eso las podemos guardar en un mapa.
+Luego tenemos un mapa de funciones de validación. Es importante destacar que Go trata las funciones como valor y por eso las podemos guardar en un mapa.
 
 En este caso definimos que tenemos dos tipos de datos income y expense
 * El income debe ser positivo y el movimiento debe tener un fee asociado
@@ -194,8 +194,8 @@ var MovementValidator = map[string]validator{
 
 Luego podemos usar nuestro validador de la siguiente manera:
 
-* Declaramos 2 movimientos validos y 1 invalido
-* Imprimimos el ID del movimiento si es invalido
+* Declaramos 2 movimientos válidos y 1 inválido
+* Imprimimos el ID del movimiento si es inválido
 ```go
 func main() {
 	validIncome := Movement{
@@ -231,17 +231,17 @@ func main() {
 
 Un closure es la combinación de una función y el ámbito en el que se declaró dicha función. Y la particularidad es que la función definida en el closure "recuerda" el entorno en el que se ha creado y puede acceder a valores o punteros de ese entorno en cualquier momento.
 
-Esto es una de las cosas mas poderosas para tener en cuenta al trabajar con funciones en Go.
+Esto es una de las cosas más poderosas para tener en cuenta al trabajar con funciones en Go.
 
 Veamos 3 casos que he visto implementados en programas productivos, donde los closures puede ser muy útiles:
 
-1. Filtrado de datos Generico
+1. Filtrado de datos Genérico
 
-Supongamos que tenemos tipos que comparten un tipo de dato en común o ninguno, pero tenemos repetida la logica de filtrados en varias partes de nuestro programa.
+Supongamos que tenemos tipos que comparten un tipo de dato en común o ninguno, pero tenemos repetida la lógica de filtrados en varias partes de nuestro programa.
 
-Podemos aprovechar el pase de funciones y los closures para hacer una funcion generica.
+Podemos aprovechar el pase de funciones y los closures para hacer una función genérica.
 
-Tenemos los tipos AccountMovement y Debt, que no tienen mucha relacion entre ellos.
+Tenemos los tipos AccountMovement y Debt, que no tienen mucha relación entre ellos.
 ```go
 type AccountMovement struct {
 	ID     int
@@ -272,7 +272,7 @@ debts := []Debt{
 }
 ```
 
-En algunos lenguales como java o javascript tenemos la funcion helper `filter()` que puede ser usadad sobre una lista, pasando una funcion predicado nos retorna una nueva lista de los elemtos donde ese predicado es `true`, en Go no tenemos estas funciones en la standar library, pero podemos contruirlas con un poco de ayuda de los closures.
+En algunos lenguajes como java o javascript tenemos la función helper `filter()` que puede ser usada sobre una lista, pasando una función predicado nos retorna una nueva lista de los elementos donde ese predicado es `true`, en Go no tenemos estas funciones en la standard library, pero podemos construirlas con un poco de ayuda de los closures.
 
 ```go
 func Filter(l int, predicate func(int) bool, appender func(int)) {
@@ -304,18 +304,18 @@ Filter(len(debts), func(i int) bool {
 
 2. Testing
 
-Otro luegar donde es muy común utilizar tecnicas funcionales es en los tests.
+Otro lugar donde es muy común utilizar técnicas funcionales es en los tests.
 
-Pasando closures a funciones en los tests podemos mockear funciones que nos interesa testear, ademas de poder hacer asserts dentro del closure conservando el scope de cada ejecución de un tests.
+Pasando closures a funciones en los tests podemos mockear funciones que nos interesa testear, además de poder hacer asserts dentro del closure conservando el scope de cada ejecución de un tests.
 
 3. Handler http
 
 
-### Partial Aplication
+### Partial Application
 
 1. Testing
 
-Para los tests utilizamos esta tecnica, de manera de aplicar el context de la ejecución de un test.
+Para los tests utilizamos esta técnica, de manera de aplicar el context de la ejecución de un test.
 
 2. Http handler
 
