@@ -1,6 +1,9 @@
 # Functional patterns en Go
 Recopilación de algunos patrones útiles que he identificado en el dia a dia trabajando con Go.
 
+**Nota:**
+Este repo NO es una introducción a Go, se asume que el lector tiene idea de la sintaxis básica del leguaje, manejo de funciones y conocimiento básico de algunos paquetes de la standard library como `net/http`. En caso de que no sea así, se recomienda primero dar una mirada al [tour de Go](https://tour.golang.org/welcome/1) que es una guia oficial y muy completa al lenguaje.
+
 ### Entonces, ¿programación funcional en Go?
 
 Go nos provee la capacidad de usar funciones como ciudadanos de primera clase, es decir, podemos utilizar las funciones para pasarlas como parámetro o retornarlas como valor de otra función (esto es conocido como funciones de orden superior), sin embargo, como todo en software, es acerca de tradeoffs, lo recomendado es siempre preferir la claridad del código antes que cualquier patrón o paradigma.
@@ -109,31 +112,214 @@ Después de haber visto los ejemplos y benchmarks nos podemos dar cuenta que no 
 
 Como dato para pensar, Go ya es sumamente eficiente y en la mayoría de los casos el problema de performance que vimos en los benchmarks, va a ser insignificante, normalmente vamos a tener cuellos de botella en otro lugar fuera del código, sobre todo si tenemos llamadas a través de la red, manejo de archivos, bases de datos, etc.
 
-### Higher order functions
+### Funciones como valor
 
-Mostrar como podemos hacer una funcion que retorna un http handler y poder hacer cosas antes de retornar el handler
+En Go se acostumbra utilizar funciones como valor y podemos ver que es muy utilizado en la standard library del lenguaje.
+
+Un ejemplo de esto es el paquete `net/http`, ampliamente utilizado en el ecosistema de Go para hacer servicios http (APIs REST por ejemplo).
+
+Para ver el uso de funciones primero vamos a describir como acostumbramos escribir un servidor HTTP básico usando el paquete `net/http`.
+
+Un concepto fundamental en los servidores `net/http` son los handlers. Un handler es un objeto que implementa la interfaz `http.Handler`. Una forma común de escribir un handler es mediante el uso del adaptador `http.HandlerFunc` que es tipo que describe la firma adecuada.
+
+Las funciones que sirven como handlers toman un `http.ResponseWriter` y un `http.Request` como argumentos. El writer de respuestas se utiliza para completar la respuesta HTTP.
+
+Cuando creamos una aplicación web, probablemente haya alguna funcionalidad compartida que queremos ejecutar para muchos (o incluso todos) los request HTTP. Es posible que deseemos loggear cada solicitud, comprimir cada respuesta, hacer validaciones o actualizar un caché antes de realizar un procesamiento pesado.
+
+Una forma de organizar esta funcionalidad compartida es configurarla como middleware. Que es un código autónomo que actúa de forma independiente con cada request, antes o después de los handlers de aplicaciones normales. En Go, un lugar común para usar middleware es entre un servidor y sus handlers.
+
+Los middlewares http son nada más que funciones que reciben y retornan un `http.HandlerFunc` y dentro podemos hacer operaciones necesarias sobre el request y/o response. 
+
+Veamos un ejemplo: este middleware valida que un usuario esté autenticado, sino retorna un "404 Not found" y evita que se obtenga la información.
+
+```go
+func onlyAuthenticated(h http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if !isAuth(r) {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		h(w, r)
+	}
+}
+```
+
+Luego al llamar a nuestro handler http lo wrappeamos con el middleware de la siguiente manera.
+
+```go
+srv := http.NewServeMux()
+srv.HandleFunc("/balance/", onlyAuthenticated(balanceHandler))
+```
+
+Otro ejemplo que podemos dar es un validador, segun el tipo de datos guardamos en un map la funcion de validacion correspondiente
+
+Supongamos que tenemos los tipos Movement y validator
+
+```go
+type Movement struct {
+	ID           int
+	Amount       float64
+	Fee          float64
+	MovementType string
+}
+
+type validator func(Movement) bool
+```
+
+Luego tenemos un mapa de funciones de validacion. Es importante destacar que Go trata las funciones como valor y por eso las podemos guardar en un mapa.
+
+En este caso definimos que tenemos dos tipos de datos income y expense
+* El income debe ser positivo y el movimiento debe tener un fee asociado
+* El expense debe ser negativo
+
+```go
+var MovementValidator = map[string]validator{
+	"income": func(m Movement) bool {
+		if m.Amount <= 0 {
+			return false
+		}
+		if m.Fee <= 0 {
+			return false
+		}
+		return true
+	},
+	"expense": func(m Movement) bool {
+		if m.Amount >= 0 {
+			return false
+		}
+		return true
+	},
+}
+```
+
+Luego podemos usar nuestro validador de la siguiente manera:
+
+* Declaramos 2 movimientos validos y 1 invalido
+* Imprimimos el ID del movimiento si es invalido
+```go
+func main() {
+	validIncome := Movement{
+		ID:           1,
+		Amount:       10,
+		Fee:          1,
+		MovementType: "income",
+	}
+	validExpense := Movement{
+		ID:           2,
+		Amount:       -10,
+		MovementType: "expense",
+	}
+	invalidIncomeMov := Movement{
+		ID:           3,
+		Amount:       10,
+		MovementType: "income",
+	}
+
+	if !MovementValidator[validIncome.MovementType](validIncome) {
+		log.Printf("Invalid movement %d", validIncome.ID)
+	}
+	if !MovementValidator[validExpense.MovementType](validExpense) {
+		log.Printf("Invalid movement %d", validExpense.ID)
+	}
+	if !MovementValidator[invalidIncomeMov.MovementType](invalidIncomeMov) {
+		log.Printf("Invalid movement %d", invalidIncomeMov.ID)
+	}
+}
+```
 
 ### Closures
 
-Pasando closures a funciones en los tests podemos mockear funciones que nos interesa testear, ademas de poder hacer asserts dentro del closure conservando el scope de `t *testing.T`
+Un closure es la combinación de una función y el ámbito en el que se declaró dicha función. Y la particularidad es que la función definida en el closure "recuerda" el entorno en el que se ha creado y puede acceder a valores o punteros de ese entorno en cualquier momento.
 
-Usando la tecnica de closures podemos crear una funcion para filtrar por monto en dos tipos diferentes, la idea es declarar un slice fuera del closure, pasar la referencia a la funcion filter y luego appendear dentro al slice.
+Esto es una de las cosas mas poderosas para tener en cuenta al trabajar con funciones en Go.
 
----
-ejemplo de una funcion filter por monto en dos tipos diferentes
----
+Veamos 3 casos que he visto implementados en programas productivos, donde los closures puede ser muy útiles:
 
-Explicar que de alguna manera esto suple el uso de generics en Go para este caso en particular, si queda tiempo dar un pequeño overview de porque es dificil implementar generics en Go
+1. Filtrado de datos Generico
 
-Explicar que esto es posible debido a que tenemos un dato en comun, en caso de los slices es el indice tipo `int`, pero cabe destacar que esto mismo no sería posible usando maps, debido a que las keys pueden ser de cualquier tipo.
+Supongamos que tenemos tipos que comparten un tipo de dato en común o ninguno, pero tenemos repetida la logica de filtrados en varias partes de nuestro programa.
 
----
-ejemplo de que no funciona con map
----
+Podemos aprovechar el pase de funciones y los closures para hacer una funcion generica.
+
+Tenemos los tipos AccountMovement y Debt, que no tienen mucha relacion entre ellos.
+```go
+type AccountMovement struct {
+	ID     int
+	From   string
+	To     string
+	Amount float64
+}
+
+type Debt struct {
+	ID     int
+	UserID int
+	Reason string
+	Amount float64
+}
+```
+
+Y luego tenemos un slice de AccountMovements y Debts.
+```go
+movements := []AccountMovement{
+	{ID: 1, From: "a", To: "b", Amount: 7},
+	{ID: 2, From: "c", To: "b", Amount: 14},
+	...
+}
+debts := []Debt{
+	{ID: 1, Reason: "x", UserID: 4, Amount: 16},
+	{ID: 2, Reason: "x", UserID: 2, Amount: 4},
+	...
+}
+```
+
+En algunos lenguales como java o javascript tenemos la funcion helper `filter()` que puede ser usadad sobre una lista, pasando una funcion predicado nos retorna una nueva lista de los elemtos donde ese predicado es `true`, en Go no tenemos estas funciones en la standar library, pero podemos contruirlas con un poco de ayuda de los closures.
+
+```go
+func Filter(l int, predicate func(int) bool, appender func(int)) {
+	for i := 0; i < l; i++ {
+		if predicate(i) {
+			appender(i)
+		}
+	}
+}
+```
+Y para llamarla en las listas de tipo AccountMovement y Debt hacemos lo siguiente:
+
+* Declaramos un slice de elementos AccountMovement fuera de la llamada a filter
+```go
+var bigMovements []AccountMovement
+Filter(len(movements), func(i int) bool {
+	return movements[i].Amount > 20
+}, func(i int) {
+	bigMovements = append(bigMovements, movements[i])
+})
+
+var bigDebts []Debt
+Filter(len(debts), func(i int) bool {
+	return debts[i].Amount > 20
+}, func(i int) {
+	bigDebts = append(bigDebts, debts[i])
+})
+```
+
+2. Testing
+
+Otro luegar donde es muy común utilizar tecnicas funcionales es en los tests.
+
+Pasando closures a funciones en los tests podemos mockear funciones que nos interesa testear, ademas de poder hacer asserts dentro del closure conservando el scope de cada ejecución de un tests.
+
+3. Handler http
+
 
 ### Partial Aplication
 
-Para los test utilizamos esta tecnica, de manera de aplicar el context de 
+1. Testing
+
+Para los tests utilizamos esta tecnica, de manera de aplicar el context de la ejecución de un test.
+
+2. Http handler
+
+
 
 ### Concurrencia y funciones
 
@@ -145,9 +331,9 @@ En Go no tenemos en la standard library algo parecido a las promesas en javascri
 
 Primero mostramos un ejemplo de 3 endpoint, con delays:
 
- /users 		-> 150 ms
- /balance 		-> 350 ms
- /user-debts 		-> 250 ms
+* /users 		-> 150 ms
+* /balance 		-> 350 ms
+* /user-debts 	-> 250 ms
 
 
 1. Primero hacemos un cliente con los 3 request bloqueantes, sin paralelismo:
