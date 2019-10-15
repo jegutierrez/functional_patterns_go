@@ -228,6 +228,8 @@ func main() {
 }
 ```
 
+El código completo del validador se puede encontrar [aqui](https://github.com/jegutierrez/functional_patterns_go/tree/master/functions_as_values)
+
 ## Closures y partial application
 
 Un closure es la combinación de una función y el ámbito en el que se declaró dicha función. Y la particularidad es que la función definida en el closure "recuerda" el entorno en el que se ha creado y puede acceder a valores o punteros de ese entorno en cualquier momento.
@@ -448,6 +450,8 @@ func userHandler(delayMs time.Duration) http.HandlerFunc {
 	}
 }
 ```
+
+El código completo y los tests aplicados con closures se puede encontrar [aqui](https://github.com/jegutierrez/functional_patterns_go/tree/master/closures)
 
 ## Concurrencia
 
