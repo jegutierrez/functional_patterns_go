@@ -1,11 +1,11 @@
 # Functional patterns en Go
 
-Recopilación de algunos patrones útiles que he identificado en el dia a dia trabajando con Go.
+Recopilación de algunos patrones útiles utilizando funciones en Go.
 
 **Nota:**
-Este repo **NO** es una introducción a Go, se asume que el lector tiene idea de la sintaxis básica del lenguaje, manejo de funciones y conocimiento básico de algunos paquetes de la standard library como `net/http` y `testing`. En caso de que no sea así, se recomienda primero dar una mirada al [tour de Go](https://tour.golang.org/welcome/1) que es una guía oficial y muy completa al lenguaje.
+Este repo **NO** es una introducción a Go, se asume que el lector tiene idea de la sintaxis básica del lenguaje, manejo de funciones y conocimiento básico de algunos paquetes de la standard library como `net/http` y `testing`. En caso de que no sea así, se recomienda primero dar una mirada al [tour de Go](https://tour.golang.org/welcome/1) que es una introdución oficial y muy completa al lenguaje.
 
-## Entonces, ¿programación funcional en Go?
+## Entonces, ¿hacemos programación funcional en Go?
 
 Go tiene la capacidad de usar funciones como ciudadanos de primera clase, es decir, se pueden utilizar las funciones para pasarlas como parámetro o retornarlas como valor de otra función (esto es conocido como funciones de orden superior), sin embargo, como todo en software, es acerca de tradeoffs, lo recomendado es siempre preferir la claridad del código antes que cualquier patrón o paradigma.
 
@@ -15,18 +15,18 @@ En el siguiente post vamos a describir una serie de técnicas de programación f
 
 La programación funcional nos trae dos grandes restricciones:
 
-* Usar funciones para todo: hacer todas las operaciones con funciones.
-* No mutar estado: no mutar valores una vez declarados, no tener estructuras de datos mutables, no tener side effects dentro de nuestras funciones.
+* **Usar funciones para todo:** hacer todas las operaciones con funciones.
+* **No mutar estado:** no mutar valores una vez declarados, no tener estructuras de datos mutables, no tener side effects dentro de nuestras funciones.
 
-Algunos de los conceptos clave en programación funcional son los siguientes:
+Repasemos algunos de los conceptos clave en programación funcional:
 
 ## Recursividad
 
-Cuando hablamos de programación funcional (FP) tenemos dos requisitos importantes, trabajar con funciones y no mutar estado. Y una de las primeras técnicas que nos viene a la cabeza es la recursividad, que es la capacidad de una función de llamarse a sí misma. Esto es necesario porque es la manera de hacer loops en FP.
+Despues de ver que los dos requisitos importantes son trabajar con funciones y no mutar estado, una de las primeras técnicas que nos viene a la mente es la recursividad, que es la capacidad de una función de llamarse a sí misma. Esto es necesario porque es la manera de hacer loops en programación funcional.
 
 Por lo tanto lo primero que no se puede usar para mantener inmutabilidad en nuestra aplicación es **for loops**, ya que vamos mutando una variable que toma diferente valor en cada iteración.
 
-Otra de las cosas que acostumbramos a usar en Go son estructuras de datos a las que vamos agregando elementos, esto tampoco podríamos si seguimos las reglas de FP, aunque en el caso del **slice** usando la función `append()` no estamos violando la regla, ya que nos retorna un nuevo slice cada vez que se llama.
+Otra de las cosas que acostumbramos a usar en Go son estructuras de datos a las que vamos agregando elementos, esto tampoco podríamos si seguimos las reglas de programación funcional, aunque el **array** en Go es inmutable y en el caso del **slice** usando la función `append()` no estamos violando la regla, ya que nos retorna un nuevo slice cada vez que se agrega un elemento.
 
 #### ¿Es buena idea no usar for loops en Go?
 
@@ -107,7 +107,7 @@ ok      _/Users/jegutierrez/Documents/projects/functional_patters_go/recursive  
 
 Vemos que hay una diferencia considerable entre las dos versiones, la recursiva tarda un poco más de 21 segundos, esto es principalmente, debido a la cantidad de llamadas anidadas en el stack de ejecuciones (podríamos optimizar nuestra versión recursiva utilizando alguna técnica de memoization, pero solo busco mostrar que la recursividad puede tener un costo grande en algunos casos) y la versión que usa for loop tiene un tiempo cercano a cero.
 
-Dejo todo el código y otro ejemplo utilizando tail recursividad, junto con los test y benchmarks aplicados [aqui](https://github.com/jegutierrez/functional_patterns_go/tree/master/recursion).
+Dejo todo el código y otro ejemplo utilizando tail recursion, junto con los test y benchmarks aplicados [aqui](https://github.com/jegutierrez/functional_patterns_go/tree/master/recursion).
 
 Después de haber visto los ejemplos y benchmarks nos podemos dar cuenta que no es tan buena idea usar recursividad en todos los casos en Go, ya que no tenemos problema de que crezca call el stack, además de ser la manera más idiomática de resolver casi todos los problemas en el ecosistema de Go, sin embargo, como dije antes, lo que tenemos que priorizar siempre es la claridad del código y si para el equipo una solución funcional resulta más clara, pues entonces es la manera correcta.
 
@@ -115,11 +115,21 @@ Como dato para pensar, Go ya es sumamente eficiente y en la mayoría de los caso
 
 ## Funciones como valor
 
-En Go se acostumbra utilizar funciones como valor y es ampliamente utilizado en la standard library del lenguaje.
+En Go se pueden utilizar funciones como valor y es muy común en la standard library del lenguaje.
 
-Un ejemplo de esto es el paquete `net/http`, ampliamente utilizado en el ecosistema de Go para hacer servicios http (APIs REST por ejemplo).
+Un ejemplo de esto es el paquete `net/http`, ampliamente utilizado en el ecosistema de Go para hacer servidores http (APIs REST por ejemplo).
 
-Para ver el uso de funciones primero vamos a describir como acostumbramos escribir un servidor HTTP básico usando el paquete `net/http`.
+Para ver el uso de funciones primero veamos como acostumbramos escribir un servidor HTTP básico usando el paquete `net/http`.
+
+```go
+func main() {
+    http.HandleFunc("/", func (w http.ResponseWriter, r *http.Request) {
+        fmt.Fprintf(w, "Hello gophers!")
+    })
+
+    http.ListenAndServe(":80", nil)
+}
+```
 
 Un concepto fundamental en los servidores `net/http` son los handlers. Un handler es un objeto que implementa la interfaz `http.Handler`. Una forma común de escribir un handler es mediante el uso del adaptador `http.HandlerFunc` que es tipo que describe la firma adecuada.
 
@@ -129,7 +139,7 @@ Cuando creamos una aplicación web, probablemente haya alguna funcionalidad comp
 
 Una forma de organizar esta funcionalidad compartida es configurarla como middleware. Que es un código autónomo que actúa de forma independiente con cada request, antes o después de los handlers de aplicaciones normales. En Go, un lugar común para usar middleware es entre un servidor y sus handlers.
 
-Los middlewares http son nada más que funciones que reciben y retornan un `http.HandlerFunc` y dentro se pueden hacer operaciones necesarias sobre el request y/o response. 
+Los middlewares http son simples funciones que reciben y retornan un `http.HandlerFunc` y dentro se pueden hacer operaciones necesarias sobre el request y/o response. 
 
 Veamos un ejemplo: este middleware valida que un usuario esté autenticado, sino retorna un "404 Not found" y evita que se obtenga la información.
 
@@ -152,7 +162,7 @@ srv := http.NewServeMux()
 srv.HandleFunc("/balance/", onlyAuthenticated(balanceHandler))
 ```
 
-Otro ejemplo es un validador, según el tipo de datos guardamos en un map la función de validación correspondiente
+**Otro ejemplo es un validador**, según el tipo de datos guardamos en un `Map` la función de validación correspondiente
 
 Supongamos que tenemos los tipos Movement y validator
 
@@ -236,7 +246,7 @@ Un closure es la combinación de una función y el ámbito en el que se declaró
 
 Esto es una de las cosas más poderosas para tener en cuenta al trabajar con funciones en Go.
 
-Veamos 3 casos que he visto implementados en programas productivos, donde los closures puede ser muy útiles:
+Veamos 3 casos sacados de aplicaciones productivas, donde los closures resuelven problemas de manera muy elegante:
 
 **1. Filtrado de datos Genérico**
 
@@ -309,7 +319,7 @@ Filter(len(debts), func(i int) bool {
 
 Otro lugar donde es muy común utilizar técnicas funcionales es en los tests.
 
-Veamos cómo se ven los test en Go utilizando el paquete `testing`:
+Veamos cómo escribir test en Go utilizando el paquete `testing`:
 
 ```go
 import "testing"
@@ -321,7 +331,7 @@ func TestAbc(t *testing.T) {
 
 Veamos un caso real:
 
-Tenemos una interfaz DB, con un método para guardar un usuario en la base de datos y el tipo MySQL que lo implementa.
+Tenemos una interfaz DB de ejemplo, que emula un repositorio con un método para guardar un usuario en la base de datos y el tipo MySQL que lo implementa.
 
 ```go
 type DB interface {
@@ -457,7 +467,7 @@ El código completo y los tests aplicados con closures se puede encontrar [aqui]
 
 Frecuentemente utilizamos técnicas funcionales para trabajar con concurrencia en Go como funciones lambda o closures. 
 
-Vamos a mostrar el ejemplo muy común de hacer llamadas a múltiples APIs y luego unir los resultados, lo que buscamos es, hacer múltiples requests http en paralelo y luego esperar a que vuelvan las respuestas para procesarlas.
+Vamos a mostrar el ejemplo real de hacer llamadas a múltiples APIs y luego unir los resultados. Lo que buscamos es, hacer múltiples requests http en paralelo y luego esperar a que vuelvan las respuestas para procesarlas.
 
 En Go no tenemos en la standard library algo parecido a las promesas en javascript o Futures en java, sin embargo utilizado goroutines, waitgroups y channel podemos construir nuestra propia manera de resolver promesas al estilo simple de Go.
 
@@ -469,6 +479,7 @@ Primero mostramos un ejemplo de 3 endpoint, con delays:
 
 
 **1. Cliente http bloqueante**
+
 Primero hacemos un cliente con los 3 request bloqueantes, sin paralelismo:
 
 En este caso:
@@ -499,6 +510,7 @@ func GetUserStatusSync(serverURL, userID string) (UserStatus, error) {
 ```
 
 **2. Cliente asíncrono con waitgroups**
+
 Una llamada utilizando funciones anónimas, closures, goroutines y un waitgroup para esperar a las respuesta de los 3 endpoints.
 
 En este caso:
@@ -545,6 +557,7 @@ func GetUserStatusAsyncWaitGroup(serverURL, userID string) (UserStatus, error) {
 ```
 
 **3. Cliente asíncrono con channels**
+
 Una llamada utilizando funciones anónimas, closures, goroutines y un waitgroup para esperar a las respuesta de los 3 endpoints.
 
 En este caso:
