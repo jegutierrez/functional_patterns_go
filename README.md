@@ -45,12 +45,12 @@ Versión recursiva:
 func CoinsChangeRecursive(amount int, coins []int) int {
 	if amount == 0 {
 		return 1
-	} else if amount > 0 && len(coins) > 0 {
+	}
+  if amount > 0 && len(coins) > 0 {
 		return CoinsChangeRecursive(amount-coins[0], coins) +
 			CoinsChangeRecursive(amount, coins[1:])
-	} else {
-		return 0
 	}
+	return 0
 }
 ```
 
@@ -186,19 +186,13 @@ En este caso definimos que tenemos dos tipos de datos income y expense
 ```go
 var MovementValidator = map[string]validator{
 	"income": func(m Movement) bool {
-		if m.Amount <= 0 {
-			return false
-		}
-		if m.Fee <= 0 {
+		if m.Amount <= 0 || m.Fee <= 0 {
 			return false
 		}
 		return true
 	},
 	"expense": func(m Movement) bool {
-		if m.Amount >= 0 {
-			return false
-		}
-		return true
+		return m.Amount < 0
 	},
 }
 ```
@@ -540,9 +534,8 @@ func GetUserStatusAsyncWaitGroup(serverURL, userID string) (UserStatus, error) {
 	}()
 	waitgroup.Wait()
 
-	var userInfo map[string]string
+	var userInfo, userBalance map[string]string
 	unmarshalResponse(userResponse, &userInfo)
-	var userBalance map[string]string
 	unmarshalResponse(balanceResponse, &userBalance)
 	var userDebts []map[string]string
 	unmarshalResponse(debtsResponse, &userDebts)
@@ -589,9 +582,8 @@ func GetUserStatusAsyncChannels(serverURL, userID string) (UserStatus, error) {
 		debtsResponse <- result
 	}()
 
-	var userInfo map[string]string
+	var userInfo, userBalance map[string]string
 	unmarshalResponse(<-userResponse, &userInfo)
-	var userBalance map[string]string
 	unmarshalResponse(<-balanceResponse, &userBalance)
 	var userDebts []map[string]string
 	unmarshalResponse(<-debtsResponse, &userDebts)
