@@ -10,14 +10,15 @@ func FibonacciRecursive(n int) int {
 
 // FibonacciFor implementation using for loops.
 func FibonacciFor(n int) int {
-	fib := make([]int, n+1, n+2)
-	if n < 2 {
-		fib = fib[0:2]
+	if n <= 1 {
+		return n
 	}
-	fib[0] = 0
-	fib[1] = 1
-	for i := 2; i <= n; i++ {
-		fib[i] = fib[i-1] + fib[i-2]
+
+	var n2, n1 int = 0, 1
+
+	for i := 2; i < n; i++ {
+		n2, n1 = n1, n1+n2
 	}
-	return fib[n]
+
+	return n2 + n1
 }
