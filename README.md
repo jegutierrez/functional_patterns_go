@@ -7,7 +7,7 @@ Este repo **NO** es una introducción a Go, se asume que el lector tiene idea de
 
 ## Entonces, ¿hacemos programación funcional en Go?
 
-Go tiene la capacidad de usar funciones como ciudadanos de primera clase, es decir, se pueden utilizar las funciones para pasarlas como parámetro o retornarlas como valor de otra función (esto es conocido como funciones de orden superior), sin embargo, como todo en software, es acerca de tradeoffs, lo recomendado es siempre preferir la claridad del código antes que cualquier patrón o paradigma.
+Go tiene la capacidad de usar funciones como ciudadanos de primera clase, es decir, se pueden utilizar las funciones para pasarlas como parámetro o retornarlas como valor de otra función (esto es conocido como funciones de orden superior). Sin embargo, como todo en software es acerca de tradeoffs, lo recomendado es siempre preferir la claridad del código antes que cualquier patrón o paradigma.
 
 En el siguiente post vamos a describir una serie de técnicas de programación funcional, aprovechando esta capacidad de trabajar con funciones como valor.
 
@@ -24,7 +24,7 @@ Repasemos algunos de los conceptos clave en programación funcional:
 
 Despues de ver que los dos requisitos importantes son trabajar con funciones y no mutar estado, una de las primeras técnicas que nos viene a la mente es la recursividad, que es la capacidad de una función de llamarse a sí misma. Esto es necesario porque es la manera de hacer loops en programación funcional.
 
-Por lo tanto lo primero que no se puede usar para mantener inmutabilidad en nuestra aplicación es **for loops**, ya que vamos mutando una variable que toma diferente valor en cada iteración.
+Por lo tanto lo primero que no se puede usar para mantener inmutabilidad en nuestra aplicación es **`for` loops**, ya que vamos mutando una variable que toma diferente valor en cada iteración.
 
 Otra de las cosas que acostumbramos a usar en Go son estructuras de datos a las que vamos agregando elementos, esto tampoco podríamos si seguimos las reglas de programación funcional, aunque el **array** en Go es inmutable y en el caso del **slice** usando la función `append()` no estamos violando la regla, ya que nos retorna un nuevo slice cada vez que se agrega un elemento.
 
@@ -45,7 +45,7 @@ func FibonacciRecursive(n int) int {
 }
 ```
 
-Versión usando for loop y una tabla para guardar los resultados de cada iteración:
+Versión usando `for` loop y una tabla para guardar los resultados de cada iteración:
 
 ```go
 func FibonacciFor(n int) int {
@@ -93,13 +93,13 @@ BenchmarkFibonacciRecursive-4                    1        6755780536 ns/op
 BenchmarkFibonacciFor-4                 2000000000              0.00 ns/op
 ```
 
-Vemos que hay una diferencia considerable entre las dos versiones, la recursiva tarda un poco más de 6 segundos, esto es principalmente, debido a la cantidad de llamadas anidadas en el stack de ejecuciones (podríamos optimizar nuestra versión recursiva utilizando alguna técnica de memoization, pero solo buscamos mostrar que la recursividad puede tener un costo grande en algunos casos) y la versión que usa for loop tiene un tiempo cercano a cero.
+Vemos que hay una diferencia considerable entre las dos versiones: la recursiva tarda un poco más de 6 segundos y la versión que usa for loop tiene un tiempo cercano a cero. Esto es principalmente debido a la cantidad de llamadas anidadas en el stack de ejecuciones (podríamos optimizar nuestra versión recursiva utilizando alguna técnica de memoization, pero solo buscamos mostrar que la recursividad puede tener un costo grande en algunos casos).
 
-Dejo todo el código y otro ejemplo utilizando tail recursion, junto con los test y benchmarks aplicados [aqui](https://github.com/jegutierrez/functional_patterns_go/tree/master/recursion).
+Dejo todo el código y otro ejemplo utilizando tail recursion, junto con los test y benchmarks aplicados [aquí](https://github.com/jegutierrez/functional_patterns_go/tree/master/recursion).
 
 Después de haber visto los ejemplos y benchmarks nos podemos dar cuenta que no es tan buena idea usar recursividad en todos los casos en Go, ya que no tenemos problema de que crezca call el stack, además de ser la manera más idiomática de resolver casi todos los problemas en el ecosistema de Go, sin embargo, como dije antes, lo que tenemos que priorizar siempre es la claridad del código y si para el equipo una solución funcional resulta más clara, pues entonces es la manera correcta.
 
-Como dato para pensar, Go ya es sumamente eficiente y en la mayoría de los casos el problema de performance que vimos en los benchmarks, va a ser insignificante, normalmente vamos a tener cuellos de botella en otro lugar fuera del código, sobre todo si tenemos llamadas a través de la red, manejo de archivos, bases de datos, etc.
+Como dato para pensar, Go ya es sumamente eficiente y en la mayoría de los casos el problema de performance que vimos en los benchmarks va a ser insignificante. Normalmente vamos a tener cuellos de botella en otro lugar fuera del código, sobre todo si tenemos llamadas a través de la red, manejo de archivos, bases de datos, etc.
 
 ## Funciones como valor
 
@@ -125,7 +125,7 @@ Las funciones que sirven como handlers toman un `http.ResponseWriter` y un `http
 
 Cuando creamos una aplicación web, probablemente haya alguna funcionalidad compartida que queremos ejecutar para muchos (o incluso todos) los request HTTP. Es posible que deseemos loggear cada solicitud, comprimir cada respuesta, hacer validaciones o actualizar un caché antes de realizar un procesamiento pesado.
 
-Una forma de organizar esta funcionalidad compartida es configurarla como middleware. Que es un código autónomo que actúa de forma independiente con cada request, antes o después de los handlers de aplicaciones normales. En Go, un lugar común para usar middleware es entre un servidor y sus handlers.
+Una forma de organizar esta funcionalidad compartida es configurarla como middleware, que es un código autónomo que actúa de forma independiente con cada request, antes o después de los handlers de aplicaciones normales. En Go, un lugar común para usar middleware es entre un servidor y sus handlers.
 
 Los middlewares http son simples funciones que reciben y retornan un `http.HandlerFunc` y dentro se pueden hacer operaciones necesarias sobre el request y/o response. 
 
@@ -143,16 +143,16 @@ func onlyAuthenticated(h http.HandlerFunc) http.HandlerFunc {
 }
 ```
 
-Luego al llamar a nuestro handler http lo wrappeamos con el middleware de la siguiente manera.
+Luego, al llamar a nuestro handler http, lo wrappeamos con el middleware de la siguiente manera.
 
 ```go
 srv := http.NewServeMux()
 srv.HandleFunc("/balance/", onlyAuthenticated(balanceHandler))
 ```
 
-**Otro ejemplo es un validador**, según el tipo de datos guardamos en un `Map` la función de validación correspondiente
+**Otro ejemplo es un validador.** Según el tipo de datos, guardamos en un `Map` la función de validación correspondiente.
 
-Supongamos que tenemos los tipos Movement y validator
+Supongamos que tenemos los tipos `Movement` y `validator`
 
 ```go
 type Movement struct {
@@ -165,11 +165,11 @@ type Movement struct {
 type validator func(Movement) bool
 ```
 
-Luego tenemos un mapa de funciones de validación. Es importante destacar que Go trata las funciones como valor y por eso las podemos guardar en un Map.
+Luego tenemos un mapa de funciones de validación. Es importante destacar que Go trata las funciones como valor y por eso las podemos guardar en un `Map`.
 
-En este caso definimos que tenemos dos tipos de datos income y expense
-* El income debe ser positivo y el movimiento debe tener un fee asociado
-* El expense debe ser negativo
+En este caso definimos que tenemos dos tipos de datos: `income` y `expense`
+* El `income` debe ser positivo y el movimiento debe tener un fee asociado
+* El `expense` debe ser negativo
 
 ```go
 var MovementValidator = map[string]validator{
@@ -217,7 +217,7 @@ func main() {
 }
 ```
 
-El código completo del validador se puede encontrar [aqui](https://github.com/jegutierrez/functional_patterns_go/tree/master/functions_as_values)
+El código completo del validador se puede encontrar [aquí](https://github.com/jegutierrez/functional_patterns_go/tree/master/functions_as_values)
 
 ## Closures y partial application
 
@@ -233,7 +233,7 @@ Supongamos que tenemos tipos que comparten un tipo de dato en común y tenemos r
 
 Aprovechando el pase de funciones y los closures para hacer una función genérica.
 
-Tenemos los tipos AccountMovement & Debt, que no tienen mucha relación entre ellos.
+Tenemos los tipos `AccountMovement` y `Debt`, que no tienen mucha relación entre ellos.
 ```go
 type AccountMovement struct {
 	ID     int
@@ -250,7 +250,7 @@ type Debt struct {
 }
 ```
 
-Y luego tenemos un slice de AccountMovements y Debts.
+Y luego tenemos un slice de `AccountMovements` y `Debts`.
 ```go
 movements := []AccountMovement{
 	{ID: 1, From: "a", To: "b", Amount: 7},
@@ -264,7 +264,7 @@ debts := []Debt{
 }
 ```
 
-En algunos lenguajes como java o javascript tenemos la función helper `filter()` que puede ser usada sobre una lista, pasando una función predicado nos retorna una nueva lista de los elementos donde ese predicado es `true`, en Go no tenemos estas funciones en la standard library, pero podemos construirlas con un poco de ayuda de closures.
+En algunos lenguajes como Java o JavaScript tenemos la función helper `filter()` que puede ser usada sobre una lista, donde pasando una función predicado nos retorna una nueva lista de los elementos donde ese predicado es `true`. En Go, en cambio, no tenemos estas funciones en la standard library, pero podemos construirlas con un poco de ayuda de closures:
 
 ```go
 func Filter(l int, predicate func(int) bool, appender func(int)) {
@@ -275,9 +275,9 @@ func Filter(l int, predicate func(int) bool, appender func(int)) {
 	}
 }
 ```
-Y para llamarla en las listas de tipo AccountMovement y Debt hacemos lo siguiente:
+Y para llamarla en las listas de tipo `AccountMovement` y `Debt` hacemos lo siguiente:
 
-* Declaramos un slice de elementos AccountMovement fuera de la llamada a filter
+* Declaramos un slice de elementos `AccountMovement` fuera de la llamada a filter
 ```go
 var bigMovements []AccountMovement
 Filter(len(movements), func(i int) bool {
@@ -310,7 +310,7 @@ func TestAbc(t *testing.T) {
 
 Veamos un caso real:
 
-Tenemos una interfaz DB de ejemplo, que emula un repositorio con un método para guardar un usuario en la base de datos y el tipo MySQL que lo implementa.
+Tenemos una interfaz DB de ejemplo, que emula un repositorio con un método para guardar un usuario en la base de datos y el tipo `MySQL` que lo implementa.
 
 ```go
 type DB interface {
@@ -326,7 +326,7 @@ func (m MySQL) SaveUser(u User) {
 
 Usando closures en los tests se pueden mockear funciones que nos interesa testear, además de poder hacer asserts dentro del closure conservando el scope de cada ejecución de un tests.
 
-Definimos un tipo MySQL mock:
+Definimos un tipo `MySQL` mock:
 
 ```go
 type MockDB struct {
@@ -382,7 +382,7 @@ func TestHttpHandler(t *testing.T) {
 
 Para hacer servidores http uno de los componentes clave es el http handler.
 
-Veamos un caso real, suponiendo que tenemos una dependencia como Newrelic para hacer tracing de requests en nuestra API.
+Veamos un caso real, suponiendo que tenemos una dependencia como NewRelic para hacer tracing de requests en nuestra API:
 
 ```go
 type FakeNewrelic struct {
@@ -400,9 +400,9 @@ func (n *FakeNewrelic) Trace() {
 }
 ```
 
-Algo que resulta muy útil es, en vez de que nuestro handler sea un `http.HandlerFunc`, que sea una función que recibe los parámetros necesarios y retorna un `http.HandlerFunc`, esto nos permite recibir parámetros y crear un entorno closure donde se puede inicializar funcionalidad antes de crear nuestro handler en sí. Para que quede más claro, veamos un ejemplo.
+Algo que resulta muy útil es, en vez de que nuestro handler sea un `http.HandlerFunc`, que sea una función que recibe los parámetros necesarios y retorna un `http.HandlerFunc`. Esto nos permite recibir parámetros y crear un entorno closure donde se puede inicializar funcionalidad antes de crear nuestro handler en sí. Para que quede más claro, veamos un ejemplo.
 
-Después de tener definida nuestra dependencia (Newrelic) vamos a ver como utilizarla en nuestro handler:
+Después de tener definida nuestra dependencia (NewRelic), vamos a ver como utilizarla en nuestro handler:
 
 * La función `userHandler` recibe un delay para utilizar dentro del handler.
 * `userHandler` es un closure que nos permite declarar e inicializar cualquier dependencia antes de retornar el handler. En nuestro caso inicializamos un tracer y declaramos un tipo response.
@@ -438,15 +438,15 @@ func userHandler(delayMs time.Duration) http.HandlerFunc {
 }
 ```
 
-El código completo y los tests aplicados con closures se puede encontrar [aqui](https://github.com/jegutierrez/functional_patterns_go/tree/master/closures)
+El código completo y los tests aplicados con closures se puede encontrar [aquí](https://github.com/jegutierrez/functional_patterns_go/tree/master/closures)
 
 ## Funciones lambda & closures en concurrencia
 
 Frecuentemente utilizamos técnicas funcionales para trabajar con concurrencia en Go como funciones lambda o closures. 
 
-Vamos a mostrar el ejemplo real de hacer llamadas a múltiples APIs y luego unir los resultados. Lo que buscamos es, hacer múltiples requests http en paralelo y luego esperar a que vuelvan las respuestas para procesarlas.
+Vamos a mostrar el ejemplo real de hacer llamadas a múltiples APIs y luego unir los resultados. Lo que buscamos es hacer múltiples requests http en paralelo y luego esperar a que vuelvan las respuestas para procesarlas.
 
-En Go no tenemos en la standard library algo parecido a las promesas en javascript o Futures en java, sin embargo utilizado goroutines, waitgroups y channel podemos construir nuestra propia manera de resolver promesas al estilo simple de Go.
+En Go no tenemos en la standard library algo parecido a las promesas en JavaScript o Futures en Java, sin embargo utilizado goroutines, waitgroups y channel podemos construir nuestra propia manera de resolver promesas al estilo simple de Go.
 
 Primero mostramos un ejemplo de 3 endpoint, con delays:
 
@@ -579,7 +579,7 @@ func GetUserStatusAsyncChannels(serverURL, userID string) (UserStatus, error) {
 }
 ```
 
-Para comprobar que se ejecutan en paralelo escribimos un test que levanta un servidor http y ejecuta los 3 clientes y observar los resultados.
+Para comprobar que se ejecutan en paralelo, escribimos un test que levanta un servidor http, ejecuta los 3 clientes y observa los resultados.
 
 ```go
 func TestGetUserStatus(t *testing.T) {
@@ -616,7 +616,7 @@ Resultados:
 2019/10/12 17:21:36 GetUserStatusAsyncChannels took 355.580379ms
 PASS
 ```
-El código completo y los tests aplicados se puede encontrar [aqui](https://github.com/jegutierrez/functional_patterns_go/tree/master/http)
+El código completo y los tests aplicados se puede encontrar [aquí](https://github.com/jegutierrez/functional_patterns_go/tree/master/http)
 
 Aprovechando la capacidad de pasar funciones se pueden hacer patrones de concurrencia muy elegantes, manteniendo la simpleza en nuestro código.
 
