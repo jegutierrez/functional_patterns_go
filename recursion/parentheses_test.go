@@ -39,7 +39,7 @@ func TestBalanceParenthesesRecursive(t *testing.T) {
 	}
 }
 
-func TestBalanceParenthesesGoStyle(t *testing.T) {
+func TestBalanceParenthesesFor(t *testing.T) {
 
 	tt := []struct {
 		sentence       string
@@ -65,7 +65,7 @@ func TestBalanceParenthesesGoStyle(t *testing.T) {
 
 	for _, tc := range tt {
 		t.Run(tc.sentence, func(t *testing.T) {
-			result := BalanceGoStyle(tc.sentence)
+			result := BalanceFor(tc.sentence)
 
 			if result != tc.expectedResult {
 				t.Errorf("unspected result, want: %t, got: %t", tc.expectedResult, result)
@@ -82,8 +82,8 @@ func BenchmarkBalanceParenthesesRecursive(b *testing.B) {
 	}
 }
 
-func BenchmarkBalanceParenthesesGoStyle(b *testing.B) {
-	result := BalanceGoStyle(ReallyLargeParenthesesExpression)
+func BenchmarkBalanceParenthesesFor(b *testing.B) {
+	result := BalanceFor(ReallyLargeParenthesesExpression)
 
 	if result != true {
 		b.Errorf("unspected result, want true, got: %t", result)

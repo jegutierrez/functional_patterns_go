@@ -32,8 +32,8 @@ func balanceHelper(s string, pointer, count int) bool {
 	return balanceHelper(s, pointer+1, count)
 }
 
-// BalanceGoStyle iterative Go style implementation.
-func BalanceGoStyle(s string) bool {
+// BalanceFor iterative Go implementation.
+func BalanceFor(s string) bool {
 	var count int
 	for _, c := range s {
 		if c == '(' {

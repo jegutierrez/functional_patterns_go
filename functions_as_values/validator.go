@@ -15,19 +15,10 @@ type validator func(Movement) bool
 // MovementValidator validates the correct form of a movement.
 var MovementValidator = map[string]validator{
 	"income": func(m Movement) bool {
-		if m.Amount <= 0 {
-			return false
-		}
-		if m.Fee <= 0 {
-			return false
-		}
-		return true
+		return m.Amount >= 0 || m.Fee >= 0
 	},
 	"expense": func(m Movement) bool {
-		if m.Amount >= 0 {
-			return false
-		}
-		return true
+		return m.Amount < 0
 	},
 }
 

@@ -32,80 +32,68 @@ Otra de las cosas que acostumbramos a usar en Go son estructuras de datos a las 
 
 Veamos con un ejemplo y pruebas de performance:
 
-Escribir una función que cuente cuántas maneras posibles de dar cambio hay para un monto dado con una lista de denominaciones de monedas.
-
-Por ejemplo, hay 3 maneras de dar cambio para \$4 con monedas de \$1 y \$2
-* 1+1+1+1
-* 1+1+2
-* 2+2
+Escribir una función para calcular numeros de la serie de Fibonacci
 
 Versión recursiva:
 
 ```go
-func CoinsChangeRecursive(amount int, coins []int) int {
-	if amount == 0 {
-		return 1
+func FibonacciRecursive(n int) int {
+	if n <= 1 {
+		return n
 	}
-  if amount > 0 && len(coins) > 0 {
-		return CoinsChangeRecursive(amount-coins[0], coins) +
-			CoinsChangeRecursive(amount, coins[1:])
-	}
-	return 0
+	return FibonacciRecursive(n-1) + FibonacciRecursive(n-2)
 }
 ```
 
 Versión usando for loop y una tabla para guardar los resultados de cada iteración:
 
 ```go
-func CoinsChangeGoStyle(amount int, coins []int) int {
-	var table = make([]int, amount+1, amount+1)
-	table[0] = 1
-
-	for i := 0; i < len(coins); i++ {
-		for j := coins[i]; j <= amount; j++ {
-			table[j] += table[j-coins[i]]
-		}
+func FibonacciFor(n int) int {
+	fib := make([]int, n+1, n+2)
+	if n < 2 {
+		fib = fib[0:2]
 	}
-	return table[amount]
+	fib[0] = 0
+	fib[1] = 1
+	for i := 2; i <= n; i++ {
+		fib[i] = fib[i-1] + fib[i-2]
+	}
+	return fib[n]
 }
 ```
 
-Benchmark
+Benchmark para n=45
 
 ```go
-func BenchmarkCoinsChangeRecursive(b *testing.B) {
-	result := CoinsChangeRecursive(3000, []int{5, 10, 20, 50, 100, 200, 500})
+func BenchmarkFibonacciRecursive(b *testing.B) {
+	result := FibonacciRecursive(45)
 
-	if result != 22481738 {
-		b.Errorf("unspected result, want 22481738, got: %d", result)
+	if result != 1134903170 {
+		b.Errorf("unspected result, want 1134903170, got: %d", result)
 	}
 }
 
-func BenchmarkCoinsChangeGoStyle(b *testing.B) {
-	result := CoinsChangeGoStyle(3000, []int{5, 10, 20, 50, 100, 200, 500})
+func BenchmarkFibonacciFor(b *testing.B) {
+	result := FibonacciFor(45)
 
-	if result != 22481738 {
-		b.Errorf("unspected result, want 22481738, got: %d", result)
+	if result != 1134903170 {
+		b.Errorf("unspected result, want 1134903170, got: %d", result)
 	}
 }
 ```
 
 Run the benchmark using *go test*
 ```sh
-go test -bench=Coins
+go test -bench=Fibonacci
 ```
 
 Results:
 ```sh
-goos: darwin
-goarch: amd64
-BenchmarkCoinsChangeRecursive-4                1        21611593952 ns/op
-BenchmarkCoinsChangeGoStyle-4           2000000000               0.00 ns/op
-PASS
-ok      _/Users/jegutierrez/Documents/projects/functional_patters_go/recursive  21.687s
+BenchmarkFibonacciRecursive-4                    1        6755780536 ns/op
+BenchmarkFibonacciFor-4                 2000000000              0.00 ns/op
 ```
 
-Vemos que hay una diferencia considerable entre las dos versiones, la recursiva tarda un poco más de 21 segundos, esto es principalmente, debido a la cantidad de llamadas anidadas en el stack de ejecuciones (podríamos optimizar nuestra versión recursiva utilizando alguna técnica de memoization, pero solo busco mostrar que la recursividad puede tener un costo grande en algunos casos) y la versión que usa for loop tiene un tiempo cercano a cero.
+Vemos que hay una diferencia considerable entre las dos versiones, la recursiva tarda un poco más de 6 segundos, esto es principalmente, debido a la cantidad de llamadas anidadas en el stack de ejecuciones (podríamos optimizar nuestra versión recursiva utilizando alguna técnica de memoization, pero solo buscamos mostrar que la recursividad puede tener un costo grande en algunos casos) y la versión que usa for loop tiene un tiempo cercano a cero.
 
 Dejo todo el código y otro ejemplo utilizando tail recursion, junto con los test y benchmarks aplicados [aqui](https://github.com/jegutierrez/functional_patterns_go/tree/master/recursion).
 
@@ -186,10 +174,7 @@ En este caso definimos que tenemos dos tipos de datos income y expense
 ```go
 var MovementValidator = map[string]validator{
 	"income": func(m Movement) bool {
-		if m.Amount <= 0 || m.Fee <= 0 {
-			return false
-		}
-		return true
+		return m.Amount >= 0 || m.Fee >= 0
 	},
 	"expense": func(m Movement) bool {
 		return m.Amount < 0
@@ -244,7 +229,7 @@ Veamos 3 casos sacados de aplicaciones productivas, donde los closures resuelven
 
 **1. Filtrado de datos Genérico**
 
-Supongamos que tenemos tipos que comparten un tipo de dato en común o ninguno, pero tenemos repetida la lógica de filtrados en varias partes de nuestro programa.
+Supongamos que tenemos tipos que comparten un tipo de dato en común y tenemos repetida la lógica de filtrados en varias partes de nuestro programa.
 
 Aprovechando el pase de funciones y los closures para hacer una función genérica.
 
@@ -279,7 +264,7 @@ debts := []Debt{
 }
 ```
 
-En algunos lenguajes como java o javascript tenemos la función helper `filter()` que puede ser usada sobre una lista, pasando una función predicado nos retorna una nueva lista de los elementos donde ese predicado es `true`, en Go no tenemos estas funciones en la standard library, pero podemos construirlas con un poco de ayuda de los closures.
+En algunos lenguajes como java o javascript tenemos la función helper `filter()` que puede ser usada sobre una lista, pasando una función predicado nos retorna una nueva lista de los elementos donde ese predicado es `true`, en Go no tenemos estas funciones en la standard library, pero podemos construirlas con un poco de ayuda de closures.
 
 ```go
 func Filter(l int, predicate func(int) bool, appender func(int)) {
@@ -339,7 +324,7 @@ func (m MySQL) SaveUser(u User) {
 }
 ```
 
-Pasando closures a funciones en los tests se pueden mockear funciones que nos interesa testear, además de poder hacer asserts dentro del closure conservando el scope de cada ejecución de un tests.
+Usando closures en los tests se pueden mockear funciones que nos interesa testear, además de poder hacer asserts dentro del closure conservando el scope de cada ejecución de un tests.
 
 Definimos un tipo MySQL mock:
 
@@ -384,9 +369,7 @@ func TestHttpHandler(t *testing.T) {
 		MockSaveUserFn: saveFn,
 	}
 
-	handler := saveUserHandler(mockDB)
-
-	handler(res, req)
+	saveUserHandler(mockDB)(res, req)
 
 	if status := res.Code; status != http.StatusOK {
 		t.Errorf("handler returned wrong status code: got %v want %v",
@@ -417,7 +400,7 @@ func (n *FakeNewrelic) Trace() {
 }
 ```
 
-Algo que resulta muy útil es, en vez de que nuestro handler sea un `http.HandlerFunc`, que sea una función que recibe los parámetros necesarios y retorna un `http.HandlerFunc`, esto nos permite recibir parámetro y crear un entorno closure donde se puede inicializar funcionalidad antes de crear nuestro handler en sí. Para que quede más claro, veamos un ejemplo.
+Algo que resulta muy útil es, en vez de que nuestro handler sea un `http.HandlerFunc`, que sea una función que recibe los parámetros necesarios y retorna un `http.HandlerFunc`, esto nos permite recibir parámetros y crear un entorno closure donde se puede inicializar funcionalidad antes de crear nuestro handler en sí. Para que quede más claro, veamos un ejemplo.
 
 Después de tener definida nuestra dependencia (Newrelic) vamos a ver como utilizarla en nuestro handler:
 
@@ -457,7 +440,7 @@ func userHandler(delayMs time.Duration) http.HandlerFunc {
 
 El código completo y los tests aplicados con closures se puede encontrar [aqui](https://github.com/jegutierrez/functional_patterns_go/tree/master/closures)
 
-## Concurrencia
+## Funciones lambda & closures en concurrencia
 
 Frecuentemente utilizamos técnicas funcionales para trabajar con concurrencia en Go como funciones lambda o closures. 
 
