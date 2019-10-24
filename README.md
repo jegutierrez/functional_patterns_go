@@ -405,36 +405,36 @@ Algo que resulta muy útil es, en vez de que nuestro handler sea un `http.Handle
 
 Después de tener definida nuestra dependencia (NewRelic), vamos a ver como utilizarla en nuestro handler:
 
-* La función `userHandler` recibe un delay para utilizar dentro del handler.
-* `userHandler` es un closure que nos permite declarar e inicializar cualquier dependencia antes de retornar el handler. En nuestro caso inicializamos un tracer y declaramos un tipo response.
-* Despues dentro del handler `func(w http.ResponseWriter, r *http.Request)` podemos utilizar el tracer `nr.Trace()` y el delay que recibe como parámetro el `userHandler` de la siguiente manera `time.Sleep(delayMs * time.Millisecond)`.
+* La función `balanceHandler` recibe un delay para utilizar dentro del handler.
+* `balanceHandler` es un closure que nos permite declarar e inicializar cualquier dependencia antes de retornar el handler. En nuestro caso inicializamos un tracer y declaramos un tipo response.
+* Despues dentro del handler `func(w http.ResponseWriter, r *http.Request)` podemos utilizar el tracer `nr.Trace()` y el delay que recibe como parámetro el `balanceHandler` de la siguiente manera `time.Sleep(delayMs * time.Millisecond)`.
 
 ```go
-func userHandler(delayMs time.Duration) http.HandlerFunc {
+func balanceHandler(delayMs time.Duration) http.HandlerFunc {
 
-	nr := NewRelicTracer("users")
+	nr := NewRelicTracer("balances")
 
 	type response struct {
-		ID   int    `json:"id"`
-		Name string `json:"name"`
+		UserID int     `json:"user_id"`
+		Amount float64 `json:"amount"`
 	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
 
 		nr.Trace()
 
-		userID := strings.TrimPrefix(r.URL.Path, "/users/")
-		id, err := strconv.Atoi(userID)
+		balanceUserID := strings.TrimPrefix(r.URL.Path, "/balance/")
+		userID, err := strconv.Atoi(balanceUserID)
 		if err != nil {
-			log.Println("userID is not a number")
+			log.Println("balanceUserID is not a number")
 			w.WriteHeader(400)
 		}
-		user := response{ID: id, Name: "user" + userID}
+		balance := response{UserID: userID, Amount: 100}
 
 		time.Sleep(delayMs * time.Millisecond)
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(user)
+		json.NewEncoder(w).Encode(balance)
 	}
 }
 ```
